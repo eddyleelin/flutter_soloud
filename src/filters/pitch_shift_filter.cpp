@@ -17,43 +17,97 @@ void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
                                 unsigned int aBufferSize,
                                 unsigned int aChannels, float aSamplerate,
                                 SoLoud::time aTime) {
-
   updateParams(aTime);
 
-  // Allocate per-channel pitch shifters on first call or if channel count
-  // changes
   if (mChannelCount != aChannels) {
     mChannelCount = aChannels;
-    mPitchShifters.clear();
-    mPitchShifters.resize(aChannels);
+    mChannelStates.clear();
+    mChannelStates.resize(aChannels);
   }
 
   const float dryRatio = 1.0f - mParam[PitchShift::WET];
   const float wetRatio = mParam[PitchShift::WET];
+  const double targetPitch = mParam[PitchShift::SHIFT];
+  const unsigned int sampleRate =
+      static_cast<unsigned int>(aSamplerate + 0.5f);
 
-  // Process each channel independently to preserve stereo separation
   for (unsigned int ch = 0; ch < aChannels; ch++) {
     float *channelData = aBuffer + ch * aSamples;
+    auto &state = mChannelStates[ch];
 
-    if (wetRatio < 1.0f) {
-      // Need to save original samples for wet/dry mixing
-      std::vector<float> original(channelData, channelData + aSamples);
+    if (!state.configured || state.sampleRate != sampleRate) {
+      state.shifter.clear();
+      state.shifter.setSampleRate(sampleRate);
+      state.shifter.setChannels(1);
+      state.shifter.setTempo(1.0);
+      state.shifter.setRate(1.0);
+      state.shifter.setPitch(targetPitch);
+      state.sampleRate = sampleRate;
+      state.lastPitch = targetPitch;
+      state.outputQueue.clear();
+      state.configured = true;
+    } else if (std::abs(state.lastPitch - targetPitch) > 1e-4) {
+      state.shifter.clear();
+      state.shifter.setPitch(targetPitch);
+      state.lastPitch = targetPitch;
+      state.outputQueue.clear();
+    }
 
-      // Use osamp=32 for best quality (recommended by smbPitchShift
-      // documentation)
-      mPitchShifters[ch].smbPitchShift(mParam[PitchShift::SHIFT], aSamples,
-                                       2048, 32, aSamplerate, channelData,
-                                       channelData);
+    if (state.dryBuffer.size() < aSamples) {
+      state.dryBuffer.resize(aSamples);
+      state.processedBuffer.resize(aSamples);
+      state.pullBuffer.resize(aSamples);
+    }
 
-      // Apply wet/dry mix
-      for (unsigned int j = 0; j < aSamples; j++) {
-        channelData[j] = original[j] * dryRatio + channelData[j] * wetRatio;
+    std::copy(channelData, channelData + aSamples, state.dryBuffer.begin());
+
+    state.shifter.putSamples(channelData, aSamples);
+
+    while (state.outputQueue.size() < aSamples) {
+      const auto available = state.shifter.numSamples();
+      if (available == 0) {
+        break;
       }
+      const auto needed =
+          static_cast<uint>(aSamples - state.outputQueue.size());
+      const auto toPull = std::min<uint>(available, needed);
+      const auto pulled =
+          state.shifter.receiveSamples(state.pullBuffer.data(), toPull);
+      if (pulled == 0) {
+        break;
+      }
+      state.outputQueue.insert(state.outputQueue.end(),
+                               state.pullBuffer.begin(),
+                               state.pullBuffer.begin() + pulled);
+    }
+
+    const auto fromQueue =
+        std::min<size_t>(state.outputQueue.size(), aSamples);
+    if (fromQueue > 0) {
+      std::copy(state.outputQueue.begin(),
+                state.outputQueue.begin() + fromQueue,
+                state.processedBuffer.begin());
+      state.outputQueue.erase(state.outputQueue.begin(),
+                              state.outputQueue.begin() + fromQueue);
+    }
+    if (fromQueue < aSamples) {
+      std::copy(state.dryBuffer.begin() + fromQueue,
+                state.dryBuffer.begin() + aSamples,
+                state.processedBuffer.begin() + fromQueue);
+    }
+
+    if (wetRatio >= 1.0f) {
+      std::copy(state.processedBuffer.begin(),
+                state.processedBuffer.begin() + aSamples, channelData);
+    } else if (wetRatio <= 0.0f) {
+      std::copy(state.dryBuffer.begin(),
+                state.dryBuffer.begin() + aSamples, channelData);
     } else {
-      // Full wet - no need for temp buffer
-      mPitchShifters[ch].smbPitchShift(mParam[PitchShift::SHIFT], aSamples,
-                                       2048, 32, aSamplerate, channelData,
-                                       channelData);
+      for (unsigned int j = 0; j < aSamples; j++) {
+        channelData[j] =
+            state.dryBuffer[j] * dryRatio +
+            state.processedBuffer[j] * wetRatio;
+      }
     }
   }
 }

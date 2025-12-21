@@ -2,14 +2,25 @@
 #define PITCH_SHIFT_FILTER_H
 
 #include "../soloud/include/soloud.h"
-#include "smbPitchShift.h"
+#include "../soundtouch/SoundTouch.h"
 
 #include <vector>
 
 class PitchShift;
 
 class PitchShiftInstance : public SoLoud::FilterInstance {
-  std::vector<CSmbPitchShift> mPitchShifters;
+  struct ChannelState {
+    soundtouch::SoundTouch shifter;
+    std::vector<float> outputQueue;
+    std::vector<float> dryBuffer;
+    std::vector<float> processedBuffer;
+    std::vector<float> pullBuffer;
+    double lastPitch = 1.0;
+    unsigned int sampleRate = 0;
+    bool configured = false;
+  };
+
+  std::vector<ChannelState> mChannelStates;
   PitchShift *mParent;
   unsigned int mChannelCount = 0;
 

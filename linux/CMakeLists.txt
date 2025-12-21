@@ -28,6 +28,7 @@ endif ()
 include_directories(${SRC_DIR}/soloud/include)
 include_directories(${SRC_DIR}/soloud/src)
 include_directories(${SRC_DIR})
+include_directories(${SRC_DIR}/soundtouch)
 include (src.cmake)
 message("**************** SOLOUD SRC.CMAKE END  ${TARGET_NAME}")
 
@@ -40,6 +41,20 @@ list(APPEND PLUGIN_SOURCES
   "${SRC_DIR}/player.cpp"
   "${SRC_DIR}/analyzer.cpp"
   "${SRC_DIR}/pffft/pffft.c"
+  "${SRC_DIR}/soundtouch/AAFilter.cpp"
+  "${SRC_DIR}/soundtouch/BPMDetect.cpp"
+  "${SRC_DIR}/soundtouch/FIFOSampleBuffer.cpp"
+  "${SRC_DIR}/soundtouch/FIRFilter.cpp"
+  "${SRC_DIR}/soundtouch/InterpolateCubic.cpp"
+  "${SRC_DIR}/soundtouch/InterpolateLinear.cpp"
+  "${SRC_DIR}/soundtouch/InterpolateShannon.cpp"
+  "${SRC_DIR}/soundtouch/PeakFinder.cpp"
+  "${SRC_DIR}/soundtouch/RateTransposer.cpp"
+  "${SRC_DIR}/soundtouch/SoundTouch.cpp"
+  "${SRC_DIR}/soundtouch/TDStretch.cpp"
+  "${SRC_DIR}/soundtouch/cpu_detect_x86.cpp"
+  "${SRC_DIR}/soundtouch/mmx_optimized.cpp"
+  "${SRC_DIR}/soundtouch/sse_optimized.cpp"
   "${SRC_DIR}/synth/basic_wave.cpp"
   "${SRC_DIR}/waveform/waveform.cpp"
   "${SRC_DIR}/waveform/miniaudio_libvorbis.cpp"

@@ -141,6 +141,7 @@ SOURCES=(
     ../src/bindings.cpp
     ../src/player.cpp
     ../src/pffft/*.c*
+    ../src/soundtouch/*.cpp
     ../src/analyzer.cpp
     ../src/synth/*.cpp
     ../src/filters/*.cpp
