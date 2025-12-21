@@ -1,16 +1,15 @@
-// Unconditionally define M_PI before any includes to avoid issues with
-// system headers that may define it incorrectly or not at all in C++17 mode
-#ifdef M_PI
-#undef M_PI
-#endif
-#define M_PI 3.14159265358979323846
-
 #include "parametric_eq_filter.h"
 #include "soloud.h"
 #include <algorithm>
 #include <math.h>
 #include <string.h>
 #include <string>
+
+// Define M_PI after all includes to override any broken system definition
+#ifdef M_PI
+#undef M_PI
+#endif
+#define M_PI 3.14159265358979323846
 
 ParametricEqInstance::ParametricEqInstance(ParametricEq *aParent) {
   mParent = aParent;

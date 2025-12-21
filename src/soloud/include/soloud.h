@@ -25,15 +25,14 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_H
 #define SOLOUD_H
 
-// Unconditionally define M_PI before any includes to avoid issues with
-// system headers that may define it incorrectly or not at all in C++17 mode
+#include <stdlib.h> // rand
+#include <math.h> // sin
+
+// Define M_PI after includes to override any broken system definition
 #ifdef M_PI
 #undef M_PI
 #endif
 #define M_PI 3.14159265358979323846
-
-#include <stdlib.h> // rand
-#include <math.h> // sin
 
 #ifdef SOLOUD_NO_ASSERTS
 #define SOLOUD_ASSERT(x)
