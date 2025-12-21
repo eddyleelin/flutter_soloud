@@ -58,6 +58,10 @@
 #include "PeakFinder.h"
 #include "BPMDetect.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 using namespace soundtouch;
 
 // algorithm input sample block size
