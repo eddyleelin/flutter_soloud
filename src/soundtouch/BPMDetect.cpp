@@ -58,12 +58,6 @@
 #include "PeakFinder.h"
 #include "BPMDetect.h"
 
-// Define M_PI after all includes to override any broken system definition
-#ifdef M_PI
-#undef M_PI
-#endif
-#define M_PI 3.14159265358979323846
-
 using namespace soundtouch;
 
 // algorithm input sample block size
@@ -91,7 +85,8 @@ static const double XCORR_DECAY_TIME_CONSTANT = 30.0;
 /// Data overlap factor for beat detection algorithm
 static const int OVERLAP_FACTOR = 4;
 
-static const double TWOPI = (2 * M_PI);
+// Use numeric value directly to avoid M_PI macro conflicts with system headers
+static const double TWOPI = (2 * 3.14159265358979323846);
 
 ////////////////////////////////////////////////////////////////////////////////
 

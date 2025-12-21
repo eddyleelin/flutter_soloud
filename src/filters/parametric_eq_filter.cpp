@@ -5,12 +5,6 @@
 #include <string.h>
 #include <string>
 
-// Define M_PI after all includes to override any broken system definition
-#ifdef M_PI
-#undef M_PI
-#endif
-#define M_PI 3.14159265358979323846
-
 ParametricEqInstance::ParametricEqInstance(ParametricEq *aParent) {
   mParent = aParent;
 
@@ -255,10 +249,11 @@ void ParametricEqInstance::filterChannel(float *aBuffer, unsigned int aSamples,
                               PFFFT_BACKWARD);
 
       // Apply scaling and Hann window for overlap-add
+      // Use numeric value directly to avoid M_PI macro conflicts
       for (int i = 0; i < mParent->mSTFT_WINDOW_SIZE; i++) {
         float window =
             0.5f *
-            (1.0f - cosf((2.0f * M_PI * i) / mParent->mSTFT_WINDOW_SIZE));
+            (1.0f - cosf((2.0f * 3.14159265358979323846f * i) / mParent->mSTFT_WINDOW_SIZE));
         float sample = mFFTBuffer[i * 2] * mParent->mFFT_SCALE *
                        window; // Only use real part
         mMixBuffer[aChannel]

@@ -28,11 +28,17 @@ freely, subject to the following restrictions:
 #include <stdlib.h> // rand
 #include <math.h> // sin
 
-// Define M_PI after includes to override any broken system definition
-#ifdef M_PI
-#undef M_PI
+// Use SOLOUD_PI constant instead of M_PI macro to avoid conflicts with
+// system headers that may define M_PI incorrectly in C++17 mode
+#ifndef SOLOUD_PI
+#define SOLOUD_PI 3.14159265358979323846
 #endif
-#define M_PI 3.14159265358979323846
+
+// For backward compatibility, also define M_PI if it's not already defined
+// by system headers (but don't override if already defined to avoid conflicts)
+#ifndef M_PI
+#define M_PI SOLOUD_PI
+#endif
 
 #ifdef SOLOUD_NO_ASSERTS
 #define SOLOUD_ASSERT(x)
@@ -64,8 +70,6 @@ freely, subject to the following restrictions:
 #undef WITH_SDL1_STATIC
 #define WITH_SDL1_STATIC
 #endif
-
-// M_PI is now defined unconditionally at the top of this header
 
 #if defined(_WIN32)||defined(_WIN64)
 #define WINDOWS_VERSION
