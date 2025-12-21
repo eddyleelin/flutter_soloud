@@ -52,7 +52,12 @@ void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
     if (mSignalsmithState.configured) {
       mSignalsmithState.stretcher.reset();
     }
-    mSignalsmithState = SignalsmithState();
+    mSignalsmithState.inputPtrs.clear();
+    mSignalsmithState.outputPtrs.clear();
+    mSignalsmithState.sampleRate = 0;
+    mSignalsmithState.channelCount = 0;
+    mSignalsmithState.lastPitch = 1.0;
+    mSignalsmithState.configured = false;
     mActiveAlgorithm = targetAlgorithm;
   }
 
