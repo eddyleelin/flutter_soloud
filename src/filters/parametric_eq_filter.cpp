@@ -319,13 +319,13 @@ void ParametricEqInstance::fftFilterChannel(float *aFFTBuffer,
         float d = center - current_freq;
         float w = 1.0f - (d / leftHalfwidth);
         if (w >= 0.0f)                  // Include boundary (w=0)
-          weight = std::max(w, 0.001f); // Ensure minimum weight at boundary
+          weight = (std::max)(w, 0.001f); // Ensure minimum weight at boundary
       } else if (current_freq > center && rightHalfwidth > 0.0f) {
         // Frequency is on the right side of the triangle
         float d = current_freq - center;
         float w = 1.0f - (d / rightHalfwidth);
         if (w >= 0.0f)                  // Include boundary (w=0)
-          weight = std::max(w, 0.001f); // Ensure minimum weight at boundary
+          weight = (std::max)(w, 0.001f); // Ensure minimum weight at boundary
       } else if (leftHalfwidth <= 0.0f && rightHalfwidth <= 0.0f) {
         // degenerate: treat only exact center
         weight = (fabsf(current_freq - center) < 1e-6f) ? 1.0f : 0.0f;
@@ -398,7 +398,7 @@ float ParametricEq::getParamMin(unsigned int aParamIndex) {
 }
 
 void ParametricEq::setFreqs(unsigned int nBands) {
-  mBands = std::max(1U, nBands);
+  mBands = (std::max)(1U, nBands);
 
   // resize vectors
   mGain.assign(mBands, 1.0f);

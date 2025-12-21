@@ -132,7 +132,7 @@ bool OpusDecoderWrapper::initializeDecoder(int engineSamplerateIn, int engineCha
     engineSamplerate = engineSamplerateIn;
     engineChannels = engineChannelsIn;
 
-    const int initialChannels = std::max(1, std::min(engineChannelsIn > 0 ? engineChannelsIn : 2, 2));
+    const int initialChannels = (std::max)(1, (std::min)(engineChannelsIn > 0 ? engineChannelsIn : 2, 2));
     const int initialSampleRate = 48000;
 
     if (!ensureDecoder(initialSampleRate, initialChannels))
@@ -408,7 +408,7 @@ std::vector<float> OpusDecoderWrapper::decodePacket(ogg_packet* packet)
 
         if (skipSamplesPending > 0)
         {
-            const int toSkip = std::min(skipSamplesPending, usableSamples);
+            const int toSkip = (std::min)(skipSamplesPending, usableSamples);
             skipSamplesPending -= toSkip;
             usableSamples -= toSkip;
             skippedSamples = toSkip;

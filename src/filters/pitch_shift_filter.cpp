@@ -70,7 +70,7 @@ void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
       }
       const auto needed =
           static_cast<uint>(aSamples - state.outputQueue.size());
-      const auto toPull = std::min<uint>(available, needed);
+      const auto toPull = (std::min)<uint>(available, needed);
       const auto pulled =
           state.shifter.receiveSamples(state.pullBuffer.data(), toPull);
       if (pulled == 0) {
@@ -82,7 +82,7 @@ void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
     }
 
     const auto fromQueue =
-        std::min<size_t>(state.outputQueue.size(), aSamples);
+        (std::min)<size_t>(state.outputQueue.size(), aSamples);
     if (fromQueue > 0) {
       std::copy(state.outputQueue.begin(),
                 state.outputQueue.begin() + fromQueue,
