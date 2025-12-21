@@ -85,9 +85,6 @@ static const double XCORR_DECAY_TIME_CONSTANT = 30.0;
 /// Data overlap factor for beat detection algorithm
 static const int OVERLAP_FACTOR = 4;
 
-// Use numeric value directly to avoid M_PI macro conflicts with system headers
-static const double TWOPI = (2 * 3.14159265358979323846);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // Enable following define to create bpm analysis file:
@@ -137,7 +134,7 @@ void hamming(float *w, int N)
 {
     for (int i = 0; i < N; i++)
     {
-        w[i] = (float)(0.54 - 0.46 * cos(TWOPI * i / (N - 1)));
+        w[i] = (float)(0.54 - 0.46 * cos(6.28318530717958647692 * i / (N - 1)));
     }
 
 }
