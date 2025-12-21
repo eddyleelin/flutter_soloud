@@ -6,11 +6,21 @@
 #include <algorithm>
 #include <vector>
 
+namespace {
+PitchShiftAlgorithm resolveAlgorithm(float value) {
+  return value < 0.5f ? PitchShiftAlgorithm::Signalsmith
+                      : PitchShiftAlgorithm::SoundTouch;
+}
+} // namespace
+
 PitchShiftInstance::PitchShiftInstance(PitchShift *aParent) {
   mParent = aParent;
-  initParams(3);
+  initParams(4);
+  mParam[PitchShift::WET] = aParent->mWet;
   mParam[PitchShift::SHIFT] = aParent->mShift;
   mParam[PitchShift::SEMITONES] = aParent->mSemitones;
+  mParam[PitchShift::ALGORITHM] = aParent->mAlgorithm;
+  mActiveAlgorithm = resolveAlgorithm(mParam[PitchShift::ALGORITHM]);
 }
 
 void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
@@ -30,6 +40,81 @@ void PitchShiftInstance::filter(float *aBuffer, unsigned int aSamples,
   const double targetPitch = mParam[PitchShift::SHIFT];
   const unsigned int sampleRate =
       static_cast<unsigned int>(aSamplerate + 0.5f);
+  const PitchShiftAlgorithm targetAlgorithm =
+      resolveAlgorithm(mParam[PitchShift::ALGORITHM]);
+
+  if (targetAlgorithm != mActiveAlgorithm) {
+    for (auto &state : mChannelStates) {
+      state.shifter.clear();
+      state.outputQueue.clear();
+      state.configured = false;
+    }
+    if (mSignalsmithState.configured) {
+      mSignalsmithState.stretcher.reset();
+    }
+    mSignalsmithState = SignalsmithState();
+    mActiveAlgorithm = targetAlgorithm;
+  }
+
+  if (targetAlgorithm == PitchShiftAlgorithm::Signalsmith) {
+    const bool needsConfigure =
+        !mSignalsmithState.configured ||
+        mSignalsmithState.sampleRate != sampleRate ||
+        mSignalsmithState.channelCount != aChannels;
+
+    if (needsConfigure) {
+      mSignalsmithState.stretcher.presetDefault(
+          static_cast<int>(aChannels), static_cast<float>(sampleRate), true);
+      mSignalsmithState.stretcher.setTransposeFactor(targetPitch);
+      mSignalsmithState.sampleRate = sampleRate;
+      mSignalsmithState.channelCount = aChannels;
+      mSignalsmithState.lastPitch = targetPitch;
+      mSignalsmithState.configured = true;
+      mSignalsmithState.inputPtrs.resize(aChannels);
+      mSignalsmithState.outputPtrs.resize(aChannels);
+    } else if (std::abs(mSignalsmithState.lastPitch - targetPitch) > 1e-4) {
+      mSignalsmithState.stretcher.setTransposeFactor(targetPitch);
+      mSignalsmithState.lastPitch = targetPitch;
+    }
+
+    for (unsigned int ch = 0; ch < aChannels; ch++) {
+      float *channelData = aBuffer + ch * aSamples;
+      auto &state = mChannelStates[ch];
+
+      if (state.dryBuffer.size() < aSamples) {
+        state.dryBuffer.resize(aSamples);
+        state.processedBuffer.resize(aSamples);
+      }
+
+      std::copy(channelData, channelData + aSamples, state.dryBuffer.begin());
+      mSignalsmithState.inputPtrs[ch] = state.dryBuffer.data();
+      mSignalsmithState.outputPtrs[ch] = state.processedBuffer.data();
+    }
+
+    mSignalsmithState.stretcher.process(
+        mSignalsmithState.inputPtrs, static_cast<int>(aSamples),
+        mSignalsmithState.outputPtrs, static_cast<int>(aSamples));
+
+    for (unsigned int ch = 0; ch < aChannels; ch++) {
+      float *channelData = aBuffer + ch * aSamples;
+      const auto &state = mChannelStates[ch];
+
+      if (wetRatio >= 1.0f) {
+        std::copy(state.processedBuffer.begin(),
+                  state.processedBuffer.begin() + aSamples, channelData);
+      } else if (wetRatio <= 0.0f) {
+        std::copy(state.dryBuffer.begin(), state.dryBuffer.begin() + aSamples,
+                  channelData);
+      } else {
+        for (unsigned int j = 0; j < aSamples; j++) {
+          channelData[j] =
+              state.dryBuffer[j] * dryRatio +
+              state.processedBuffer[j] * wetRatio;
+        }
+      }
+    }
+    return;
+  }
 
   for (unsigned int ch = 0; ch < aChannels; ch++) {
     float *channelData = aBuffer + ch * aSamples;
@@ -139,6 +224,12 @@ void PitchShiftInstance::setFilterParameter(unsigned int aAttributeId,
     mParam[PitchShift::SEMITONES] = aValue;
     mParam[PitchShift::SHIFT] = pow(2., aValue / 12.);
     break;
+  case PitchShift::ALGORITHM:
+    if (aValue < mParent->getParamMin(PitchShift::ALGORITHM) ||
+        aValue > mParent->getParamMax(PitchShift::ALGORITHM))
+      return;
+    mParam[PitchShift::ALGORITHM] = aValue;
+    break;
   }
 
   mParamChanged |= 1 << aAttributeId;
@@ -163,11 +254,16 @@ SoLoud::result PitchShift::setParam(unsigned int aParamIndex, float aValue) {
     mSemitones = aValue;
     mShift = pow(2., mSemitones / 12.);
     break;
+  case ALGORITHM:
+    if (aValue < getParamMin(ALGORITHM) || aValue > getParamMax(ALGORITHM))
+      return SoLoud::INVALID_PARAMETER;
+    mAlgorithm = aValue;
+    break;
   }
   return SoLoud::SO_NO_ERROR;
 }
 
-int PitchShift::getParamCount() { return 3; }
+int PitchShift::getParamCount() { return 4; }
 
 const char *PitchShift::getParamName(unsigned int aParamIndex) {
   switch (aParamIndex) {
@@ -177,12 +273,19 @@ const char *PitchShift::getParamName(unsigned int aParamIndex) {
     return "Shift";
   case SEMITONES:
     return "Semitones";
+  case ALGORITHM:
+    return "Algorithm";
   }
   return "Wet";
 }
 
 unsigned int PitchShift::getParamType(unsigned int aParamIndex) {
-  return FLOAT_PARAM;
+  switch (aParamIndex) {
+  case ALGORITHM:
+    return INT_PARAM;
+  default:
+    return FLOAT_PARAM;
+  }
 }
 
 float PitchShift::getParamMax(unsigned int aParamIndex) {
@@ -193,6 +296,8 @@ float PitchShift::getParamMax(unsigned int aParamIndex) {
     return 3.f;
   case SEMITONES:
     return 36.f;
+  case ALGORITHM:
+    return 1.f;
   }
   return 1;
 }
@@ -205,6 +310,8 @@ float PitchShift::getParamMin(unsigned int aParamIndex) {
     return 0.1f;
   case SEMITONES:
     return -36.f;
+  case ALGORITHM:
+    return 0.f;
   }
   return 1;
 }
@@ -213,6 +320,7 @@ PitchShift::PitchShift() {
   mWet = 1.0f;
   mShift = 1.0f;
   mSemitones = 0.0f;
+  mAlgorithm = static_cast<float>(PitchShiftAlgorithm::Signalsmith);
 }
 
 SoLoud::FilterInstance *PitchShift::createInstance() {

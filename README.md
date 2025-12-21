@@ -58,3 +58,11 @@ void example() async {
 ## License
 
 The Dart plugin is covered by the MIT license. For information about the underlying SoLoud engine license, see the [documentation](https://docs.page/alnitak/flutter_soloud/get_started/license).
+
+## Pitch Shift Algorithms
+
+The experimental pitch shift filter supports multiple algorithms:
+- Signalsmith Stretch (MIT) - default
+- SoundTouch (LGPL)
+
+Signalsmith Stretch depends on Signalsmith Linear (MIT). See `src/signalsmith/LICENSE.txt` and `src/signalsmith/signalsmith-linear/LICENSE.txt`.

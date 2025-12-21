@@ -8,11 +8,12 @@ import 'package:flutter_soloud/src/sound_hash.dart';
 enum PitchShiftEnum {
   wet,
   shift,
-  semitones;
+  semitones,
+  algorithm;
 
-  final List<double> _mins = const [0, 0, -36];
-  final List<double> _maxs = const [1, 3, 36];
-  final List<double> _defs = const [1, 1, 0];
+  final List<double> _mins = const [0, 0, -36, 0];
+  final List<double> _maxs = const [1, 3, 36, 1];
+  final List<double> _defs = const [1, 1, 0, 0];
 
   double get min => _mins[index];
   double get max => _maxs[index];
@@ -23,7 +24,15 @@ enum PitchShiftEnum {
         PitchShiftEnum.wet => 'Wet',
         PitchShiftEnum.shift => 'Shift',
         PitchShiftEnum.semitones => 'Semitones',
+        PitchShiftEnum.algorithm => 'Algorithm',
       };
+}
+
+enum PitchShiftAlgorithm {
+  signalsmith,
+  soundTouch;
+
+  double get value => index.toDouble();
 }
 
 abstract class _PitchShiftInternal extends FilterBase {
@@ -33,6 +42,7 @@ abstract class _PitchShiftInternal extends FilterBase {
   PitchShiftEnum get queryWet => PitchShiftEnum.wet;
   PitchShiftEnum get queryShift => PitchShiftEnum.shift;
   PitchShiftEnum get querySemitones => PitchShiftEnum.semitones;
+  PitchShiftEnum get queryAlgorithm => PitchShiftEnum.algorithm;
 }
 
 class PitchShiftSingle extends _PitchShiftInternal {
@@ -76,6 +86,18 @@ class PitchShiftSingle extends _PitchShiftInternal {
         PitchShiftEnum.semitones.index,
         PitchShiftEnum.semitones.min,
         PitchShiftEnum.semitones.max,
+      );
+
+  /// The pitch shifting algorithm to use.
+  ///
+  /// - 0: Signalsmith (default, MIT)
+  /// - 1: SoundTouch (LGPL)
+  FilterParam algorithm({SoundHandle? soundHandle}) => FilterParam(
+        soundHandle,
+        filterType,
+        PitchShiftEnum.algorithm.index,
+        PitchShiftEnum.algorithm.min,
+        PitchShiftEnum.algorithm.max,
       );
 
   /// Adjust the play speed of a sound without changing the pitch of the audio.
@@ -130,5 +152,17 @@ class PitchShiftGlobal extends _PitchShiftInternal {
         PitchShiftEnum.semitones.index,
         PitchShiftEnum.semitones.min,
         PitchShiftEnum.semitones.max,
+      );
+
+  /// The pitch shifting algorithm to use.
+  ///
+  /// - 0: Signalsmith (default, MIT)
+  /// - 1: SoundTouch (LGPL)
+  FilterParam get algorithm => FilterParam(
+        null,
+        filterType,
+        PitchShiftEnum.algorithm.index,
+        PitchShiftEnum.algorithm.min,
+        PitchShiftEnum.algorithm.max,
       );
 }
