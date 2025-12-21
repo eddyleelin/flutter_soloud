@@ -25,7 +25,9 @@ Flutter audio plugin using SoLoud library and FFI
   # Check if we should disable opus/ogg support (must exist and be '1')
   disable_opus_ogg = !ENV['NO_OPUS_OGG_LIBS'].nil? && ENV['NO_OPUS_OGG_LIBS'] == '1'
 
-  preprocessor_definitions = ['$(inherited)', '_USE_MATH_DEFINES', 'M_PI=3.14159265358979323846']
+  # M_PI is now defined directly in source files (soloud.h, BPMDetect.cpp, etc.)
+  # to avoid conflicts with system headers in C++17 mode
+  preprocessor_definitions = ['$(inherited)', '_USE_MATH_DEFINES']
   if disable_opus_ogg
     preprocessor_definitions << 'NO_OPUS_OGG_LIBS'
   end
@@ -33,7 +35,6 @@ Flutter audio plugin using SoLoud library and FFI
   s.compiler_flags = [
     '-w',
     '-DOS_OBJECT_USE_OBJC=0',
-    '-DM_PI=3.14159265358979323846',
     '-Wno-format',
     '-lpthread',
     '-lm'
@@ -59,8 +60,8 @@ Flutter audio plugin using SoLoud library and FFI
     ],
     'OTHER_LDFLAGS[sdk=iphonesimulator*]' => disable_opus_ogg ? '' : '-logg_iOS-simulator -lopus_iOS-simulator -lvorbis_iOS-simulator -lvorbisfile_iOS-simulator -lflac_iOS-simulator',
     'OTHER_LDFLAGS[sdk=iphoneos*]' => disable_opus_ogg ? '' : '-logg_iOS-device -lopus_iOS-device -lvorbis_iOS-device -lvorbisfile_iOS-device -lflac_iOS-device',
-    'OTHER_CFLAGS' => "-O3 -ffast-math -flto -fvectorize -fslp-vectorize -DM_PI=3.14159265358979323846",
-    'OTHER_CPLUSPLUSFLAGS' => "-O3 -ffast-math -flto -fvectorize -fslp-vectorize -DM_PI=3.14159265358979323846",
+    'OTHER_CFLAGS' => "$(inherited) -O3 -ffast-math -flto -fvectorize -fslp-vectorize",
+    'OTHER_CPLUSPLUSFLAGS' => "$(inherited) -O3 -ffast-math -flto -fvectorize -fslp-vectorize",
     'OTHER_CFLAGS[sdk=iphonesimulator*][arch=x86_64]' => "$(inherited) -msse -msse2 -msse3 -mssse3",
     'OTHER_CFLAGS[sdk=iphonesimulator*][arch=arm64]' => "$(inherited)",
     'OTHER_CFLAGS[sdk=iphoneos*][arch=arm64]' => "$(inherited)",

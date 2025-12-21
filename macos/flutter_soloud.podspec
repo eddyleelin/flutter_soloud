@@ -28,7 +28,9 @@ Flutter audio plugin using SoLoud library and FFI
   local_lib_path = '$(PODS_TARGET_SRCROOT)/libs'
   local_include_path = '$(PODS_TARGET_SRCROOT)/include'
 
-  preprocessor_definitions = ['$(inherited)', '_USE_MATH_DEFINES', 'M_PI=3.14159265358979323846']
+  # M_PI is now defined directly in source files (soloud.h, BPMDetect.cpp, etc.)
+  # to avoid conflicts with system headers in C++17 mode
+  preprocessor_definitions = ['$(inherited)', '_USE_MATH_DEFINES']
   if disable_opus_ogg
     preprocessor_definitions << 'NO_OPUS_OGG_LIBS'
   end
@@ -52,8 +54,8 @@ Flutter audio plugin using SoLoud library and FFI
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++17",
     "CLANG_CXX_LIBRARY" => "libc++",
     'OTHER_LDFLAGS' => disable_opus_ogg ? '' : "-L#{local_lib_path} -logg -lopus -lvorbis -lvorbisfile -lFLAC",
-    'OTHER_CFLAGS' => "-O3 -ffast-math -flto -fvectorize -fslp-vectorize -DM_PI=3.14159265358979323846",
-    'OTHER_CPLUSPLUSFLAGS' => "-O3 -ffast-math -flto -fvectorize -fslp-vectorize -DM_PI=3.14159265358979323846",
+    'OTHER_CFLAGS' => "$(inherited) -O3 -ffast-math -flto -fvectorize -fslp-vectorize",
+    'OTHER_CPLUSPLUSFLAGS' => "$(inherited) -O3 -ffast-math -flto -fvectorize -fslp-vectorize",
     'OTHER_CFLAGS[arch=x86_64]' => "$(inherited) -msse -msse2 -msse3 -mssse3",
     'OTHER_CPLAGS[arch=arm64]' => "$(inherited)",
     'OTHER_CPLUSPLUSFLAGS[arch=x86_64]' => "$(inherited) -msse -msse2 -msse3 -mssse3",

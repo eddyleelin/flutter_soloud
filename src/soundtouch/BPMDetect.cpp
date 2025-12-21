@@ -47,6 +47,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Unconditionally define M_PI before any includes to avoid issues with
+// system headers that may define it incorrectly or not at all in C++17 mode
+#ifdef M_PI
+#undef M_PI
+#endif
+#define M_PI 3.14159265358979323846
+
 #define _USE_MATH_DEFINES
 
 #include <math.h>
@@ -57,10 +64,6 @@
 #include "FIFOSampleBuffer.h"
 #include "PeakFinder.h"
 #include "BPMDetect.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 using namespace soundtouch;
 

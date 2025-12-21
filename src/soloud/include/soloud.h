@@ -25,6 +25,13 @@ freely, subject to the following restrictions:
 #ifndef SOLOUD_H
 #define SOLOUD_H
 
+// Unconditionally define M_PI before any includes to avoid issues with
+// system headers that may define it incorrectly or not at all in C++17 mode
+#ifdef M_PI
+#undef M_PI
+#endif
+#define M_PI 3.14159265358979323846
+
 #include <stdlib.h> // rand
 #include <math.h> // sin
 
@@ -59,9 +66,7 @@ freely, subject to the following restrictions:
 #define WITH_SDL1_STATIC
 #endif
 
-#ifndef M_PI
-#define M_PI 3.14159265359
-#endif
+// M_PI is now defined unconditionally at the top of this header
 
 #if defined(_WIN32)||defined(_WIN64)
 #define WINDOWS_VERSION
