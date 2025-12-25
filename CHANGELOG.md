@@ -3,6 +3,9 @@
 - added `filters/parametric_eq.dart` example
 - added parametric equalizer with 1 to 64 bands and FFT window size 32 to 4096 for quality and performance
 
+#### 3.4.7 (18 Dec 2025)
+- fix: null check before accessing sound in seek() #384. Thanks to @9AZX
+
 #### 3.4.6 (4 Dec 2025)
 - win fix: loadMem/loadAsset futures never finish when run in parallel with the same file #376 
 
@@ -515,4 +518,3 @@ Initial release:
 * Includes a speech synthesizer
 * Supports various common formats such as 8, 16, and 32-bit WAVs, floating point WAVs, OGG, MP3, and FLAC
 * Enables real-time retrieval of audio FFT and wave data
-
