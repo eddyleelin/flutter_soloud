@@ -30,6 +30,14 @@ Flutter audio plugin using SoLoud library and FFI
   end
   preprocessor_definitions << 'SIGNALSMITH_USE_PFFFT'
 
+  if disable_xiph_libs
+    pod_ldflags_device = '$(inherited)'
+    pod_ldflags_sim = '$(inherited)'
+  else
+    pod_ldflags_device = '$(inherited) -logg_iOS-device -lopus_iOS-device -lvorbis_iOS-device -lvorbisfile_iOS-device -lFLAC_iOS-device'
+    pod_ldflags_sim = '$(inherited) -logg_iOS-simulator -lopus_iOS-simulator -lvorbis_iOS-simulator -lvorbisfile_iOS-simulator -lFLAC_iOS-simulator'
+  end
+
   # Build the plugin's native code using CMake with release optimizations.
   # CMake handles incremental builds internally — if no source files changed,
   # this is a fast no-op.
@@ -64,6 +72,8 @@ Flutter audio plugin using SoLoud library and FFI
       '$(PODS_TARGET_SRCROOT)/cmake_build/$(PLATFORM_NAME)',
       '$(PODS_TARGET_SRCROOT)/flutter_soloud/libs',
     ],
+    'OTHER_LDFLAGS[sdk=iphoneos*]' => pod_ldflags_device,
+    'OTHER_LDFLAGS[sdk=iphonesimulator*]' => pod_ldflags_sim,
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++17",
     "CLANG_CXX_LIBRARY" => "libc++"
   }
