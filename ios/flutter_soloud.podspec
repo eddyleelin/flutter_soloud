@@ -78,8 +78,8 @@ Flutter audio plugin using SoLoud library and FFI
     user_ldflags_device = force_load_lib
     user_ldflags_sim = force_load_lib
   else
-    user_ldflags_device = "#{force_load_lib} -L#{plugin_root}/flutter_soloud/libs -logg_iOS-device -lopus_iOS-device -lvorbis_iOS-device -lvorbisfile_iOS-device -lflac_iOS-device"
-    user_ldflags_sim = "#{force_load_lib} -L#{plugin_root}/flutter_soloud/libs -logg_iOS-simulator -lopus_iOS-simulator -lvorbis_iOS-simulator -lvorbisfile_iOS-simulator -lflac_iOS-simulator"
+    user_ldflags_device = "#{force_load_lib} -L#{plugin_root}/flutter_soloud/libs -logg_iOS-device -lopus_iOS-device -lvorbis_iOS-device -lvorbisfile_iOS-device -lFLAC_iOS-device"
+    user_ldflags_sim = "#{force_load_lib} -L#{plugin_root}/flutter_soloud/libs -logg_iOS-simulator -lopus_iOS-simulator -lvorbis_iOS-simulator -lvorbisfile_iOS-simulator -lFLAC_iOS-simulator"
   end
 
   s.user_target_xcconfig = {
@@ -88,15 +88,10 @@ Flutter audio plugin using SoLoud library and FFI
     'LIBRARY_SEARCH_PATHS' => "$(inherited) \"#{plugin_root}/cmake_build/$(PLATFORM_NAME)\" \"#{plugin_root}/flutter_soloud/libs\"",
   }
   
-  # Only include libraries if opus/ogg is enabled
+  # Preserve the packaged archives for the sdk-specific linker flags above.
+  # Avoid vendored_libraries here because CocoaPods links those device archives
+  # into simulator builds as well, which breaks iOS simulator linking.
   if !disable_xiph_libs
-    s.ios.vendored_libraries = [
-      'flutter_soloud/libs/libopus_iOS-device.a',
-      'flutter_soloud/libs/libogg_iOS-device.a',
-      'flutter_soloud/libs/libvorbis_iOS-device.a',
-      'flutter_soloud/libs/libvorbisfile_iOS-device.a',
-      'flutter_soloud/libs/libflac_iOS-device.a'
-    ]
     s.preserve_paths = [
       'flutter_soloud/libs/libopus_iOS-device.a',
       'flutter_soloud/libs/libogg_iOS-device.a',
@@ -106,8 +101,8 @@ Flutter audio plugin using SoLoud library and FFI
       'flutter_soloud/libs/libvorbis_iOS-simulator.a',
       'flutter_soloud/libs/libvorbisfile_iOS-device.a',
       'flutter_soloud/libs/libvorbisfile_iOS-simulator.a',
-      'flutter_soloud/libs/libflac_iOS-device.a',
-      'flutter_soloud/libs/libflac_iOS-simulator.a'
+      'flutter_soloud/libs/libFLAC_iOS-device.a',
+      'flutter_soloud/libs/libFLAC_iOS-simulator.a'
     ]
   end
 
