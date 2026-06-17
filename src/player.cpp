@@ -9,6 +9,7 @@
 #include "synth/basic_wave.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdarg>
 #include <cstring>
 #include <random>
@@ -56,6 +57,11 @@ void Player::dispose() {
         return;
 
     mInited = false;
+
+    // Supersede any pending deferred device-pause so it can't fire a
+    // soloud.pause() into the engine we are about to deinit. The worker's own
+    // mInited check is a second guard. See pauseEngine() / device_pause.h.
+    mDeferredEnginePause.cancel();
 
     // Clean up SoLoud
     setVoiceEndedCallback(nullptr);
@@ -625,15 +631,32 @@ void Player::setPause(unsigned int handle, bool pause)
     
     if (pause)
     {
-        // When pausing, check if there are any remaining active voices.
-        // If no voices are active, pause the audio device to allow the OS
-        // to properly manage the audio session (important for Control Center
-        // and remote command handling on iOS).
-        if (soloud.getActiveVoiceCount() == 0)
-        {
-            soloud.pause();
-        }
+        // When pausing, pause the audio device if no voices remain so the OS
+        // can manage the audio session (Control Center / remote commands on
+        // iOS). Deferred off the UI thread — see pauseEngine().
+        pauseEngine();
     }
+}
+
+// Settle delay before the deferred idle-pause fires. Long enough to coalesce a
+// stop/dispose burst and let a quick re-play cancel the pause; short enough to
+// release the iOS audio session promptly when genuinely idle. (Upstream PR #486
+// committed 2000ms as a debug leftover; its own comment says ~100ms.)
+static constexpr int kPauseSettleDelayMs = 150;
+
+// Pause the audio device once no voices remain — but OFF the calling (UI)
+// thread. Running soloud.pause() synchronously here would, on iOS, block the UI
+// thread inside ma_device_stop() -> AURemoteIO::Stop() (a HAL round-trip) and
+// hang the app (BUBBLEGUM-APP-2EV / 2ET; upstream #485, regressed by #406,
+// fixed by #486). DeferredEnginePause runs the pause on a worker after a short
+// settle delay, only if the engine is still inited and idle then, coalescing
+// rapid stop/dispose bursts down to a single device pause. See device_pause.h.
+void Player::pauseEngine()
+{
+    mDeferredEnginePause.schedule(
+        std::chrono::milliseconds(kPauseSettleDelayMs),
+        [this]() { return mInited && soloud.getActiveVoiceCount() == 0; },
+        [this]() { soloud.pause(); });
 }
 
 bool Player::getPause(unsigned int handle)
@@ -744,14 +767,10 @@ PlayerErrors Player::play(
 void Player::stop(unsigned int handle)
 {
     soloud.stop(handle);
-    
-    // After stopping, check if there are any remaining active voices.
-    // If no voices are active, pause the audio device to allow the OS
-    // to properly manage the audio session.
-    if (soloud.getActiveVoiceCount() == 0)
-    {
-        soloud.pause();
-    }
+
+    // After stopping, pause the audio device if no voices remain so the OS can
+    // manage the audio session. Deferred off the UI thread — see pauseEngine().
+    pauseEngine();
 }
 
 void Player::removeHandle(unsigned int handle)
@@ -782,8 +801,7 @@ void Player::removeHandle(unsigned int handle)
 void Player::disposeSound(unsigned int soundHash)
 {
     std::unique_ptr<ActiveSound> soundToDestroy;
-    bool shouldPause = false;
-    
+
     {
         std::lock_guard<std::recursive_mutex> lock(sounds_mutex);
         if (sounds.empty())
@@ -830,19 +848,13 @@ void Player::disposeSound(unsigned int soundHash)
             // Move the sound out of the vector before erasing
             soundToDestroy = std::move(*it);
             sounds.erase(it);
-            
-            // Check if we should pause the device after destroying
-            shouldPause = (soloud.getActiveVoiceCount() == 0);
         }
     }
     // Sound (and its filters) is destroyed here when soundToDestroy goes out of scope
-    
-    // After disposing a sound, check if there are any remaining active voices.
-    // If no voices are active, pause the audio device.
-    if (shouldPause)
-    {
-        soloud.pause();
-    }
+
+    // After disposing a sound, pause the audio device if no voices remain.
+    // Deferred off the UI thread — see pauseEngine().
+    pauseEngine();
 }
 
 void Player::disposeAllSound()

@@ -12,6 +12,7 @@
 #include "soloud/include/soloud.h"
 #include "soloud/include/soloud_speech.h"
 #include "soloud/src/backend/miniaudio/miniaudio.h"
+#include "soloud/src/backend/miniaudio/device_pause.h"
 
 #include <atomic>
 #include <iostream>
@@ -200,6 +201,13 @@ public:
   /// @param handle the sound handle.
   /// @param pause whether this sound should be paused or not.
   void setPause(unsigned int handle, bool pause);
+
+  /// @brief Pause the audio device shortly after the last voice goes idle,
+  /// OFF the calling (UI) thread. Called from stop()/setPause()/disposeSound()
+  /// instead of a synchronous soloud.pause(), which on iOS blocks the UI thread
+  /// inside ma_device_stop() and hangs the app (BUBBLEGUM-APP-2EV/2ET; upstream
+  /// #485/#486). See device_pause.h / mDeferredEnginePause.
+  void pauseEngine();
 
   /// @brief Gets the pause state.
   /// @param handle the sound handle.
@@ -631,6 +639,10 @@ public:
   unsigned int mChannels;
 
 private:
+  /// Runs the idle device-pause off the UI thread (coalesced, settle-delayed).
+  /// See pauseEngine() and device_pause.h.
+  soloud_fork::DeferredEnginePause mDeferredEnginePause;
+
   ma_device_info *pPlaybackInfos;
   std::mutex remove_handle_mutex;
   mutable std::recursive_mutex sounds_mutex;  // Protects the sounds vector (recursive to avoid deadlock in destructors)

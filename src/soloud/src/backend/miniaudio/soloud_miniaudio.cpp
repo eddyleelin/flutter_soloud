@@ -275,6 +275,12 @@ namespace SoLoud
     // state and keeps MPRemoteCommandCenter routing intact.
     result soloud_miniaudio_pause(SoLoud::Soloud *aSoloud)
     {
+        // pause() now runs on a deferred worker thread (Player::pauseEngine /
+        // device_pause.h), so it can race an engine teardown that already nulled
+        // gDevicePtr (soloud_miniaudio_deinit). Bail out instead of dereferencing
+        // a freed/null device.
+        if (gDevicePtr == nullptr)
+            return 0;
         if (ma_device_get_state(gDevicePtr) == ma_device_state_started)
         {
 #if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
