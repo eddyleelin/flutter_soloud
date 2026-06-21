@@ -87,6 +87,26 @@ abstract class FlutterSoLoud {
     Channels channels,
   );
 
+  /// Like [initEngine] but allowed to run the (synchronous, potentially
+  /// UI-thread-blocking) native device-start off the calling isolate.
+  ///
+  /// Fork patch (bubblegum, BUBBLEGUM-APP-2JD): on Android the native
+  /// `initEngine` -> miniaudio `ma_device_start` -> AAudio
+  /// `AudioStream::waitForStateChange` can block the calling thread for a few
+  /// seconds on a slow device. `SoLoud.init()` is awaited from the root
+  /// isolate, whose thread is the Flutter UI/platform thread, so that block
+  /// trips the Android ANR watchdog at cold start. The FFI backend overrides
+  /// this to run the blocking call on a short-lived background isolate. The
+  /// default just delegates to the synchronous [initEngine] (web, and any
+  /// backend with no UI-thread blocking to avoid).
+  Future<PlayerErrors> initEngineAsync(
+    int deviceId,
+    int sampleRate,
+    int bufferSize,
+    Channels channels,
+  ) async =>
+      initEngine(deviceId, sampleRate, bufferSize, channels);
+
   /// Change the playback device.
   ///
   /// [deviceId] the device ID. -1 for default OS output device.

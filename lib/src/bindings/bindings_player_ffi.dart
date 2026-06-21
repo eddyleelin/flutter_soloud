@@ -5,6 +5,8 @@
 // ignore_for_file: omit_local_variable_types,public_member_api_docs
 
 import 'dart:ffi' as ffi;
+import 'dart:io' show Platform;
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
@@ -267,6 +269,57 @@ class FlutterSoLoudFfi extends FlutterSoLoud {
     Channels channels,
   ) {
     final ret = _initEngine(deviceId, sampleRate, bufferSize, channels.count);
+    return PlayerErrors.values[ret];
+  }
+
+  @override
+  Future<PlayerErrors> initEngineAsync(
+    int deviceId,
+    int sampleRate,
+    int bufferSize,
+    Channels channels,
+  ) async {
+    // Fork patch (bubblegum, BUBBLEGUM-APP-2JD): the native `initEngine` runs
+    // miniaudio's `ma_device_start` synchronously; with the Android AAudio
+    // backend that blocks the calling thread inside
+    // `AudioStream::waitForStateChange` (a clock_nanosleep poll) for several
+    // seconds on a slow device. `SoLoud.init()` is awaited from the root
+    // isolate, whose thread is the Flutter UI/platform thread, so the block
+    // ANRs the app at cold start even when the call is scheduled at idle.
+    //
+    // Run the blocking FFI call on a short-lived background isolate so the UI
+    // thread stays responsive. Safety: the native function pointer is valid in
+    // every isolate of the process (one shared address space); engine global
+    // state is guarded by `init_deinit_mutex`; the Dart side awaits this before
+    // any other engine call; and the Dart voice/state callbacks are registered
+    // separately on the root isolate AFTER init returns, so off-threading the
+    // device-start cannot affect them. The AAudio/miniaudio backend has no
+    // platform-thread affinity (pure NDK, no JNI/main-looper dependency).
+    //
+    // Android-only: that is where the AAudio device-start ANRs. iOS/macOS and
+    // desktop init works today and their audio-session activation timing is
+    // intentionally left on the existing synchronous path.
+    if (!Platform.isAndroid) {
+      return initEngine(deviceId, sampleRate, bufferSize, channels);
+    }
+
+    final initEngineAddress = _initEnginePtr.address;
+    final channelCount = channels.count;
+    final ret = await Isolate.run(() {
+      final initEngineFn =
+          ffi.Pointer<
+                ffi.NativeFunction<
+                  ffi.Int32 Function(
+                    ffi.Int,
+                    ffi.UnsignedInt,
+                    ffi.UnsignedInt,
+                    ffi.UnsignedInt,
+                  )
+                >
+              >.fromAddress(initEngineAddress)
+              .asFunction<int Function(int, int, int, int)>();
+      return initEngineFn(deviceId, sampleRate, bufferSize, channelCount);
+    });
     return PlayerErrors.values[ret];
   }
 
