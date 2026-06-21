@@ -386,7 +386,11 @@ interface class SoLoud {
       deinit();
     }
 
-    final error = _controller.soLoudFFI.initEngine(
+    // Fork patch (bubblegum, BUBBLEGUM-APP-2JD): await the async variant so the
+    // backend can run the blocking native device-start off the Flutter UI
+    // thread (it does on Android). On other platforms it resolves synchronously
+    // to the original initEngine call.
+    final error = await _controller.soLoudFFI.initEngineAsync(
       device?.id ?? -1,
       sampleRate,
       bufferSize,
