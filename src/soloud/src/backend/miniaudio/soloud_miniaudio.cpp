@@ -64,6 +64,7 @@ namespace SoLoud
 #include "miniaudio.h"
 #ifdef __ANDROID__
 #include <android/api-level.h>
+#include "android_audio_backend.h"
 #endif
 #include <math.h>
 #include <chrono>
@@ -413,7 +414,7 @@ namespace SoLoud
 #elif defined(__ANDROID__)
         ma_backend backends[] = { ma_backend_aaudio, ma_backend_opensl };
         ma_uint32 backendCount = 2;
-        if (android_get_device_api_level() <= 29) {
+        if (soloud_fork::shouldUseOpenSLForAndroidApi(android_get_device_api_level())) {
             backends[0] = ma_backend_opensl;
             backendCount = 1;
         }
