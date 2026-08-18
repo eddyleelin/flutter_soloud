@@ -1434,6 +1434,42 @@ interface class SoLoud {
       looping: looping,
       loopingStartAt: loopingStartAt,
     );
+    return _completePlay(sound, ret);
+  }
+
+  /// Asynchronously plays an already loaded [sound].
+  ///
+  /// This has the same behavior and errors as [play], while allowing native
+  /// backends to move a potentially blocking audio-device start away from the
+  /// Flutter UI isolate.
+  Future<SoundHandle> playAsync(
+    AudioSource sound, {
+    int busId = 0,
+    double volume = 1,
+    double pan = 0,
+    bool paused = false,
+    bool looping = false,
+    Duration loopingStartAt = Duration.zero,
+  }) async {
+    if (!isInitialized) {
+      throw const SoLoudNotInitializedException();
+    }
+    final ret = await _controller.soLoudFFI.playAsync(
+      sound.soundHash,
+      busId: busId,
+      volume: volume,
+      pan: pan,
+      paused: paused,
+      looping: looping,
+      loopingStartAt: loopingStartAt,
+    );
+    return _completePlay(sound, ret);
+  }
+
+  SoundHandle _completePlay(
+    AudioSource sound,
+    ({PlayerErrors error, SoundHandle newHandle}) ret,
+  ) {
     _logPlayerError(ret.error, from: 'play()');
     if (!(ret.error == PlayerErrors.noError ||
         ret.error == PlayerErrors.maxActiveVoiceCountReached)) {

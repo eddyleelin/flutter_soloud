@@ -25,39 +25,41 @@ import 'package:meta/meta.dart';
 typedef DartVoiceEndedCallbackT =
     ffi.Pointer<ffi.NativeFunction<DartVoiceEndedCallbackTFunction>>;
 
-typedef DartVoiceEndedCallbackTFunction =
-    ffi.Void Function(ffi.Pointer<ffi.UnsignedInt>);
+typedef DartVoiceEndedCallbackTFunction = ffi.Void Function(
+  ffi.Pointer<ffi.UnsignedInt>,
+);
 
-typedef DartdartVoiceEndedCallbackTFunction =
-    void Function(ffi.Pointer<ffi.UnsignedInt>);
+typedef DartdartVoiceEndedCallbackTFunction = void Function(
+  ffi.Pointer<ffi.UnsignedInt>,
+);
 
 typedef DartFileLoadedCallbackT =
     ffi.Pointer<ffi.NativeFunction<DartFileLoadedCallbackTFunction>>;
 
-typedef DartFileLoadedCallbackTFunction =
-    ffi.Void Function(
-      ffi.Pointer<ffi.Int32>,
-      ffi.Pointer<ffi.Char>,
-      ffi.Pointer<ffi.UnsignedInt>,
-      ffi.Pointer<ffi.Uint64>,
-    );
+typedef DartFileLoadedCallbackTFunction = ffi.Void Function(
+  ffi.Pointer<ffi.Int32>,
+  ffi.Pointer<ffi.Char>,
+  ffi.Pointer<ffi.UnsignedInt>,
+  ffi.Pointer<ffi.Uint64>,
+);
 
-typedef DartdartFileLoadedCallbackTFunction =
-    void Function(
-      ffi.Pointer<ffi.Int32>,
-      ffi.Pointer<ffi.Char>,
-      ffi.Pointer<ffi.UnsignedInt>,
-      ffi.Pointer<ffi.Uint64>,
-    );
+typedef DartdartFileLoadedCallbackTFunction = void Function(
+  ffi.Pointer<ffi.Int32>,
+  ffi.Pointer<ffi.Char>,
+  ffi.Pointer<ffi.UnsignedInt>,
+  ffi.Pointer<ffi.Uint64>,
+);
 
 typedef DartStateChangedCallbackT =
     ffi.Pointer<ffi.NativeFunction<DartStateChangedCallbackTFunction>>;
 
-typedef DartStateChangedCallbackTFunction =
-    ffi.Void Function(ffi.Pointer<ffi.Int32>);
+typedef DartStateChangedCallbackTFunction = ffi.Void Function(
+  ffi.Pointer<ffi.Int32>,
+);
 
-typedef DartdartStateChangedCallbackTFunction =
-    void Function(ffi.Pointer<ffi.Int32>);
+typedef DartdartStateChangedCallbackTFunction = void Function(
+  ffi.Pointer<ffi.Int32>,
+);
 
 typedef OnMetadataCallbackTFunction = void Function(NativeAudioMetadata);
 
@@ -957,6 +959,90 @@ class FlutterSoLoudFfi extends FlutterSoLoud {
     );
     calloc.free(handle);
     return ret;
+  }
+
+  @override
+  Future<({PlayerErrors error, SoundHandle newHandle})> playAsync(
+    SoundHash soundHash, {
+    int busId = 0,
+    double volume = 1,
+    double pan = 0,
+    bool paused = false,
+    bool looping = false,
+    Duration loopingStartAt = Duration.zero,
+  }) async {
+    // Fork patch (bubblegum, BUBBLEGUM-APP-3VA): Player::play() calls
+    // soloud.resume(), which synchronously runs CoreAudio's ma_device_start
+    // after flutter_soloud has paused an idle device. That OS handshake can
+    // take several seconds on iOS, and a direct FFI call blocks Flutter's root
+    // isolate for the whole duration. Run only the blocking FFI call on a
+    // worker isolate on Apple platforms. The native engine is process-global,
+    // and callers await this result before touching the returned handle, so
+    // playback sequencing and Dart-side bookkeeping remain serialized.
+    if (!Platform.isIOS && !Platform.isMacOS) {
+      return play(
+        soundHash,
+        busId: busId,
+        volume: volume,
+        pan: pan,
+        paused: paused,
+        looping: looping,
+        loopingStartAt: loopingStartAt,
+      );
+    }
+
+    final playAddress = _playPtr.address;
+    final handle = calloc<ffi.UnsignedInt>();
+    final handleAddress = handle.address;
+    final hash = soundHash.hash;
+    final loopingStartSeconds = loopingStartAt.toDouble();
+    try {
+      final errorIndex = await Isolate.run(() {
+        final playFn =
+            ffi.Pointer<
+                  ffi.NativeFunction<
+                    ffi.Int32 Function(
+                      ffi.UnsignedInt,
+                      ffi.UnsignedInt,
+                      ffi.Float,
+                      ffi.Float,
+                      ffi.Int,
+                      ffi.Int,
+                      ffi.Double,
+                      ffi.Pointer<ffi.UnsignedInt>,
+                    )
+                  >
+                >.fromAddress(playAddress)
+                .asFunction<
+                  int Function(
+                    int,
+                    int,
+                    double,
+                    double,
+                    int,
+                    int,
+                    double,
+                    ffi.Pointer<ffi.UnsignedInt>,
+                  )
+                >();
+        return playFn(
+          hash,
+          busId,
+          volume,
+          pan,
+          paused ? 1 : 0,
+          looping ? 1 : 0,
+          loopingStartSeconds,
+          ffi.Pointer<ffi.UnsignedInt>.fromAddress(handleAddress),
+        );
+      });
+      return (
+        error: PlayerErrors.values[errorIndex],
+        newHandle: SoundHandle(handle.value),
+      );
+    } finally {
+      calloc.free(handle);
+    }
   }
 
   late final _playPtr =

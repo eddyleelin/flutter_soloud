@@ -12,8 +12,11 @@ import 'package:flutter_soloud/src/sound_hash.dart';
 import 'package:meta/meta.dart';
 
 /// Callback set in `setBufferStream` for the `onBuffering` closure.
-typedef OnBufferingCallbackTFunction =
-    void Function(bool isBuffering, int handle, double time);
+typedef OnBufferingCallbackTFunction = void Function(
+  bool isBuffering,
+  int handle,
+  double time,
+);
 
 /// Callback set in `setBufferStream` for the `onMetadata` closure.
 typedef OnMetadataCallbackTFunction = void Function(dynamic metadata);
@@ -104,8 +107,7 @@ abstract class FlutterSoLoud {
     int sampleRate,
     int bufferSize,
     Channels channels,
-  ) async =>
-      initEngine(deviceId, sampleRate, bufferSize, channels);
+  ) async => initEngine(deviceId, sampleRate, bufferSize, channels);
 
   /// Change the playback device.
   ///
@@ -351,6 +353,29 @@ abstract class FlutterSoLoud {
     bool looping = false,
     Duration loopingStartAt = Duration.zero,
   });
+
+  /// Like [play], but allowed to run a synchronous native device start away
+  /// from the calling isolate.
+  ///
+  /// The default delegates to [play]. Native backends may override this when
+  /// starting an idle audio device can block the UI thread.
+  Future<({PlayerErrors error, SoundHandle newHandle})> playAsync(
+    SoundHash soundHash, {
+    int busId = 0,
+    double volume = 1,
+    double pan = 0,
+    bool paused = false,
+    bool looping = false,
+    Duration loopingStartAt = Duration.zero,
+  }) async => play(
+    soundHash,
+    busId: busId,
+    volume: volume,
+    pan: pan,
+    paused: paused,
+    looping: looping,
+    loopingStartAt: loopingStartAt,
+  );
 
   /// Stop already loaded sound identified by [handle] and clear it.
   ///
