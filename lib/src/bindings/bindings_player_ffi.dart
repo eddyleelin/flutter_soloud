@@ -281,7 +281,11 @@ class FlutterSoLoudFfi extends FlutterSoLoud {
     int bufferSize,
     Channels channels,
   ) async {
-    // Fork patch (bubblegum, BUBBLEGUM-APP-2JD): the native `initEngine` runs
+    // Fork patch (bubblegum, BUBBLEGUM-APP-2JD + -41Q): the two mobile
+    // platforms each block the calling thread inside `initEngine`, in
+    // different places.
+    //
+    // Android (2JD): the native `initEngine` runs
     // miniaudio's `ma_device_start` synchronously; with the Android AAudio
     // backend that blocks the calling thread inside
     // `AudioStream::waitForStateChange` (a clock_nanosleep poll) for several
@@ -298,10 +302,31 @@ class FlutterSoLoudFfi extends FlutterSoLoud {
     // device-start cannot affect them. The AAudio/miniaudio backend has no
     // platform-thread affinity (pure NDK, no JNI/main-looper dependency).
     //
-    // Android-only: that is where the AAudio device-start ANRs. iOS/macOS and
-    // desktop init works today and their audio-session activation timing is
-    // intentionally left on the existing synchronous path.
-    if (!Platform.isAndroid) {
+    // Apple hangs the same way for a different reason (BUBBLEGUM-APP-41Q).
+    // There the block is in CONTEXT init, before any device start: miniaudio's
+    // `ma_context_init__coreaudio` calls `AudioComponentFindNext`, and the
+    // first such call in a process makes CoreAudio's global plugin manager
+    // scan and load the audio component plugins. On an older, memory-pressured
+    // device that takes seconds. Because this function is `async` but has no
+    // `await` before the early return, the Apple branch ran the blocking FFI
+    // call SYNCHRONOUSLY in the caller's run — so a tap that triggered the
+    // first sound froze the UI isolate mid-gesture rather than merely being
+    // slow. Observed on an iPad7,5 during onboarding: a quick-reply tap ->
+    // `playPop` -> `SoLoud.init` -> `ma_context_init__coreaudio`, hanging the
+    // app for over 3s.
+    //
+    // The Apple safety argument matches the Android one above, and matches the
+    // Apple `playAsync` patch (BUBBLEGUM-APP-3VA) that already off-threads the
+    // synchronous play FFI call: `ma_context_init`/CoreAudio's AudioComponent
+    // and AVAudioSession APIs are callable from any thread — none of them are
+    // main-thread-only — and the native path here (`initEngine` ->
+    // `Player::init` -> `Soloud::init` -> `miniaudio_init`) is pure C with no
+    // Objective-C/Flutter-engine interaction, so it has no platform-thread
+    // affinity to lose.
+    //
+    // Desktop (Linux/Windows) keeps the synchronous path: no hang is reported
+    // there, and its backends init cheaply.
+    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) {
       return initEngine(deviceId, sampleRate, bufferSize, channels);
     }
 
